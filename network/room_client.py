@@ -21,6 +21,7 @@ class RoomClient:
         self.last_lobby: Optional[dict] = None
         self.game_started = False
         self.game_config: Optional[dict] = None
+        self.chat_messages: list = []  # [(sender, text), ...]
 
     def connect(self) -> bool:
         try:
@@ -55,6 +56,8 @@ class RoomClient:
                 self.game_config = data.get("config", {})
             elif data.get("type") == "state":
                 self.last_state = data.get("data")
+            elif data.get("type") == "chat":
+                self.chat_messages.append((data.get("sender", "?"), data.get("message", "")))
 
     def send_input(self, keys: dict):
         if self.sock:
@@ -69,6 +72,16 @@ class RoomClient:
                 send_msg(self.sock, {"type": "ready", "ready": ready})
             except Exception:
                 pass
+
+    def send_chat(self, message: str):
+        if self.sock and message:
+            try:
+                send_msg(self.sock, {"type": "chat", "message": message})
+            except Exception:
+                pass
+
+    def get_chat_messages(self) -> list:
+        return list(self.chat_messages)
 
     def send_name(self, name: str):
         if self.sock:

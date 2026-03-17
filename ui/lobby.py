@@ -1,7 +1,8 @@
-"""房间大厅 - 等待玩家、准备、开始"""
+"""房间大厅 - 等待玩家、准备、开始、聊天"""
 
 import pygame
 from game.constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, WHITE, GRAY, YELLOW, GREEN
+from ui.chat import ChatBox
 
 
 class Lobby:
@@ -17,6 +18,7 @@ class Lobby:
         self.ready = False
         self.started = False
         self.game_config = None
+        self.chat = ChatBox(screen, y=SCREEN_HEIGHT - 130)
 
     def run(self):
         """运行大厅，返回 (started, game_config) 或 None"""
@@ -24,14 +26,20 @@ class Lobby:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return None
+                msg = self.chat.handle_event(event)
+                if msg:
+                    if self.is_host and self.server:
+                        self.server.broadcast_chat("主机", msg)
+                    elif self.client:
+                        self.client.send_chat(msg)
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE and not self.is_host:
                         return None
-                    if event.key == pygame.K_r:
+                    if event.key == pygame.K_r and not self.chat.input_active:
                         self.ready = not self.ready
                         if self.client:
                             self.client.send_ready(self.ready)
-                    if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                    if (event.key == pygame.K_RETURN or event.key == pygame.K_SPACE) and not self.chat.input_active:
                         if self.is_host and self.server:
                             # 主机开始游戏
                             player_count = 1 + self.server.player_count()
@@ -45,10 +53,10 @@ class Lobby:
             if self.is_host and self.server:
                 lobby_state = self.server.get_lobby_state()
                 self.server.broadcast_lobby(lobby_state)
+                self.chat.set_messages(self.server.get_chat_messages())
             elif self.client:
+                self.chat.set_messages(self.client.get_chat_messages())
                 lobby = self.client.get_lobby()
-                if lobby:
-                    pass  # 用于显示
                 if self.client.game_started:
                     self.started = True
                     self.game_config = self.client.game_config or {}
@@ -80,8 +88,8 @@ class Lobby:
                 text = self.font.render(f"  {p['name']} - {status}", True, color)
                 self.screen.blit(text, (SCREEN_WIDTH // 2 - 120, 180 + i * 40))
 
-            hint = self.font.render("按 Enter 开始游戏", True, WHITE)
-            self.screen.blit(hint, (SCREEN_WIDTH // 2 - 100, 350))
+            hint = self.font.render("Enter 开始  |  点击下方输入框聊天", True, WHITE)
+            self.screen.blit(hint, (SCREEN_WIDTH // 2 - 140, 350))
         else:
             lobby = self.client.get_lobby() if self.client else None
             if lobby:
@@ -97,4 +105,6 @@ class Lobby:
                 self.screen.blit(wait_text, (SCREEN_WIDTH // 2 - 80, 200))
 
             status = "已准备" if self.ready else "未准备"
-            self.screen.blit(self.font.render(f"你: {status}  (R 切换)", True, WHITE), (SCREEN_WIDTH // 2 - 100, 350))
+            self.screen.blit(self.font.render(f"你: {status}  (R 切换)  |  点击下方聊天", True, WHITE), (SCREEN_WIDTH // 2 - 150, 350))
+
+        self.chat.draw()

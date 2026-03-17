@@ -1,4 +1,4 @@
-"""游戏主逻辑 - 整合地图、关卡、实体"""
+"""游戏主逻辑 - 整合地图、关卡、实体、聊天"""
 
 import pygame
 import random
@@ -38,6 +38,11 @@ class Game:
         self.is_client = is_client
         self.network = network
         self.player_count = 2 if (is_host or is_client) else 1
+
+        self.chat = None
+        if network:
+            from ui.chat import ChatBox
+            self.chat = ChatBox(screen, y=SCREEN_HEIGHT - 130)
 
         self._init_players()
 
@@ -129,6 +134,8 @@ class Game:
     def _run_host_or_single(self):
         while self.running:
             self.handle_events()
+            if self.chat and self.network:
+                self.chat.set_messages(self.network.get_chat_messages())
             if not self.paused and self.lives > 0:
                 self.update()
                 if self.is_host and self.network:
@@ -144,16 +151,24 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not (self.chat and self.chat.input_active):
                     self.paused = not self.paused
+                if self.chat:
+                    msg = self.chat.handle_event(event)
+                    if msg:
+                        self.network.send_chat(msg)
 
-            keys = pygame.key.get_pressed()
-            keys_state["left"] = 1 if keys[pygame.K_LEFT] else 0
-            keys_state["right"] = 1 if keys[pygame.K_RIGHT] else 0
-            keys_state["jump"] = 1 if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE] else 0
-            shoot_now = keys[pygame.K_k] or keys[pygame.K_j]
-            keys_state["shoot"] = 1 if shoot_now and not last_shoot else 0
-            last_shoot = shoot_now
+            if self.chat:
+                self.chat.set_messages(self.network.get_chat_messages())
+
+            if not (self.chat and self.chat.input_active):
+                keys = pygame.key.get_pressed()
+                keys_state["left"] = 1 if keys[pygame.K_LEFT] else 0
+                keys_state["right"] = 1 if keys[pygame.K_RIGHT] else 0
+                keys_state["jump"] = 1 if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE] else 0
+                shoot_now = keys[pygame.K_k] or keys[pygame.K_j]
+                keys_state["shoot"] = 1 if shoot_now and not last_shoot else 0
+                last_shoot = shoot_now
             self.network.send_input(keys_state)
 
             state = self.network.get_state()
@@ -173,7 +188,16 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            elif event.type == pygame.KEYDOWN:
+            if self.chat:
+                msg = self.chat.handle_event(event)
+                if msg:
+                    if self.is_host and self.network:
+                        self.network.broadcast_chat("主机", msg)
+                    elif self.is_client and self.network:
+                        self.network.send_chat(msg)
+                if self.chat.input_active:
+                    continue
+            if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.paused = not self.paused
                 elif event.key == pygame.K_w or event.key == pygame.K_SPACE:
@@ -336,6 +360,9 @@ class Game:
             score_text = self.font.render(f"最终分数: {self.score}", True, WHITE)
             self.screen.blit(win_text, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 50))
             self.screen.blit(score_text, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 20))
+
+        if self.chat:
+            self.chat.draw()
 
         if not self.is_client and self.enemies_killed_this_level >= self.level_config["enemies_to_kill"]:
             self._level_complete()

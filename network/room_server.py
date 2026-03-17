@@ -29,6 +29,7 @@ class RoomServer:
         self.lock = threading.Lock()
         self.room_code = gen_room_code()
         self.game_started = False
+        self.chat_messages: List[tuple] = []  # (sender, text)
 
     def get_local_ip(self) -> str:
         try:
@@ -92,6 +93,17 @@ class RoomServer:
                 elif data.get("type") == "name":
                     if player_id in self.client_data:
                         self.client_data[player_id]["name"] = data.get("name", f"玩家{player_id + 2}")
+                elif data.get("type") == "chat":
+                    sender = self.client_data.get(player_id, {}).get("name", f"P{player_id + 2}")
+                    msg = data.get("message", "")[:100]
+                    if msg:
+                        self.chat_messages.append((sender, msg))
+                        chat_msg = {"type": "chat", "sender": sender, "message": msg}
+                        for c in self.clients:
+                            try:
+                                send_msg(c, chat_msg)
+                            except Exception:
+                                pass
 
     def get_input(self, player_id: int) -> dict:
         with self.lock:
@@ -123,6 +135,22 @@ class RoomServer:
                     send_msg(client, msg)
                 except Exception:
                     pass
+
+    def broadcast_chat(self, sender: str, message: str):
+        """主机发送聊天并广播"""
+        if message:
+            with self.lock:
+                self.chat_messages.append((sender, message))
+                chat_msg = {"type": "chat", "sender": sender, "message": message}
+                for c in self.clients:
+                    try:
+                        send_msg(c, chat_msg)
+                    except Exception:
+                        pass
+
+    def get_chat_messages(self) -> List[tuple]:
+        with self.lock:
+            return list(self.chat_messages)
 
     def broadcast_state(self, state: dict):
         msg = {"type": "state", "data": state}
