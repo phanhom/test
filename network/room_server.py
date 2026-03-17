@@ -18,10 +18,11 @@ def gen_room_code(length: int = 6) -> str:
 
 class RoomServer:
     """房间服务器 - 主机创建房间后运行"""
-    MAX_PLAYERS = 4
+    MAX_PLAYERS = 8
 
-    def __init__(self, port: int = 25565):
+    def __init__(self, port: int = 25565, max_players: int = None):
         self.port = port
+        self.MAX_PLAYERS = max_players if max_players is not None else self._get_max_players()
         self.clients: List[socket.socket] = []
         self.client_data: Dict[int, dict] = {}  # player_id -> {input, ready, name}
         self.running = False
@@ -30,6 +31,13 @@ class RoomServer:
         self.room_code = gen_room_code()
         self.game_started = False
         self.chat_messages: List[tuple] = []  # (sender, text)
+
+    def _get_max_players(self) -> int:
+        try:
+            from core.config_loader import get_lobby_config
+            return get_lobby_config().get("max_players", 8)
+        except Exception:
+            return 8
 
     def get_local_ip(self) -> str:
         try:
@@ -46,7 +54,7 @@ class RoomServer:
             self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_sock.bind(("0.0.0.0", self.port))
-            self.server_sock.listen(self.MAX_PLAYERS)
+            self.server_sock.listen(max(self.MAX_PLAYERS, 8))
             self.server_sock.settimeout(0.5)
             self.running = True
             accept_thread = threading.Thread(target=self._accept_loop, daemon=True)

@@ -1,6 +1,6 @@
 """游戏常量"""
 
-# 屏幕
+# 屏幕 (游戏模式)
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 500
 GROUND_Y = SCREEN_HEIGHT - 80

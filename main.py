@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 合金弹头 - 主入口
-支持: 单人、开房间多人、地图系统、皮肤
+支持: 单人、开房间多人、地图系统、皮肤、NPC、Lobby
 """
 
 import pygame
@@ -13,12 +13,21 @@ from ui.menu import Menu
 from ui.lobby import Lobby
 from network.room_server import RoomServer
 from network.room_client import RoomClient
+from core.config_loader import get_lobby_config, get_game_config
 
 
 def main():
     pygame.init()
     pygame.mixer.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+    lobby_cfg = get_lobby_config()
+    game_cfg = get_game_config()
+    lobby_w = lobby_cfg.get("width", 1024)
+    lobby_h = lobby_cfg.get("height", 640)
+    game_w = game_cfg.get("width", 800)
+    game_h = game_cfg.get("height", 500)
+
+    screen = pygame.display.set_mode((lobby_w, lobby_h), pygame.RESIZABLE)
     pygame.display.set_caption("合金弹头 - Metal Slug")
 
     menu = Menu(screen)
@@ -42,6 +51,7 @@ def main():
     client = None
 
     if mode == "single":
+        pygame.display.set_mode((game_w, game_h), pygame.RESIZABLE)
         game = Game(screen, player_skins=skins)
 
     elif mode == "host":
@@ -52,7 +62,7 @@ def main():
             sys.exit(1)
         print(f"房间码: {server.room_code}  |  IP: {server.get_local_ip()}:{PORT}")
 
-        lobby = Lobby(screen, is_host=True, server=server)
+        lobby = Lobby(screen, is_host=True, server=server, width=lobby_w, height=lobby_h)
         game_config = lobby.run()
         if game_config is None:
             server.stop()
@@ -77,7 +87,7 @@ def main():
             pygame.quit()
             sys.exit(1)
 
-        lobby = Lobby(screen, is_host=False, client=client)
+        lobby = Lobby(screen, is_host=False, client=client, width=lobby_w, height=lobby_h)
         game_config = lobby.run()
         if game_config is None:
             client.disconnect()
@@ -96,6 +106,8 @@ def main():
         game._init_players()
 
     if game:
+        if mode != "single":
+            pygame.display.set_mode((game_w, game_h), pygame.RESIZABLE)
         game.run()
 
     if server:

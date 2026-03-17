@@ -1,13 +1,14 @@
 """主菜单"""
 
 import pygame
-from game.constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, WHITE, GRAY, YELLOW
+from game.constants import FPS, WHITE, GRAY, YELLOW
 from game.skins import SKINS
 
 
 class Menu:
     def __init__(self, screen):
         self.screen = screen
+        self.width, self.height = screen.get_size()
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 48)
         self.title_font = pygame.font.Font(None, 72)
@@ -74,26 +75,26 @@ class Menu:
     def draw(self):
         self.screen.fill((30, 50, 80))
         title = self.title_font.render("合金弹头", True, YELLOW)
-        self.screen.blit(title, (SCREEN_WIDTH // 2 - 100, 80))
+        self.screen.blit(title, (self.width // 2 - 100, 80))
 
         for i, opt in enumerate(self.options):
             color = WHITE if i == self.selected else GRAY
             text = self.font.render(f"> {opt} <" if i == self.selected else opt, True, color)
-            self.screen.blit(text, (SCREEN_WIDTH // 2 - 120, 200 + i * 60))
+            self.screen.blit(text, (self.width // 2 - 120, 200 + i * 60))
 
         skin_p1_name = SKINS[self.skin_p1]["name"]
         skin_p2_name = SKINS[self.skin_p2]["name"]
         skin_text = self.small_font.render(
             f"P1: {skin_p1_name}  |  P2: {skin_p2_name}  (←→切换)", True, GRAY
         )
-        self.screen.blit(skin_text, (SCREEN_WIDTH // 2 - 180, 380))
+        self.screen.blit(skin_text, (self.width // 2 - 180, 380))
 
         if self.input_mode:
             hint = self.small_font.render("输入主机 IP:", True, WHITE)
-            self.screen.blit(hint, (SCREEN_WIDTH // 2 - 180, 400))
-            pygame.draw.rect(self.screen, WHITE, (SCREEN_WIDTH // 2 - 150, 430, 300, 35), 2)
+            self.screen.blit(hint, (self.width // 2 - 180, 400))
+            pygame.draw.rect(self.screen, WHITE, (self.width // 2 - 150, 430, 300, 35), 2)
             ip_text = self.font.render(self.ip_input or "_", True, WHITE)
-            self.screen.blit(ip_text, (SCREEN_WIDTH // 2 - 140, 432))
+            self.screen.blit(ip_text, (self.width // 2 - 140, 432))
 
         ctrl = self.small_font.render("↑↓选择  Enter确认  ←→切换皮肤", True, GRAY)
-        self.screen.blit(ctrl, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT - 30))
+        self.screen.blit(ctrl, (self.width // 2 - 150, self.height - 30))

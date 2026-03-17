@@ -24,6 +24,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# Local config
+# Local config (含 api_key，勿提交)
+config.json
 *.local
 .env

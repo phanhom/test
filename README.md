@@ -1,11 +1,41 @@
 # 合金弹头风格小游戏
 
-横版射击游戏，支持闯关、地图、皮肤、开房间多人联机。
+横版射击游戏，支持闯关、地图、皮肤、开房间多人联机、更大 Lobby、NPC 大模型对话。
+
+## 配置 (config.json)
+
+复制 `config.example.json` 为 `config.json`，按需修改：
+
+```json
+{
+  "lobby": { "width": 1024, "height": 640, "max_players": 8 },
+  "game": { "width": 800, "height": 500 },
+  "npc": {
+    "enabled": true,
+    "llm": {
+      "api_key": "sk-xxx",
+      "model": "gpt-4o-mini",
+      "base_url": "https://api.openai.com/v1"
+    },
+    "list": [{ "id": "npc_1", "name": "教官", "role": "军事教官", "prompt": "...", "x": 120, "y": 380 }]
+  }
+}
+```
+
+- **lobby**: 大厅尺寸、最大玩家数
+- **npc**: 启用后，大厅中可点击 NPC 对话，对接大模型 (OpenAI 兼容 API)
 
 ## 项目结构
 
 ```
 test/
+├── config.json           # 本地配置 (勿提交)
+├── config.example.json   # 配置模板
+├── core/                 # 核心
+│   └── config_loader.py
+├── npc/                  # NPC 与大模型
+│   ├── llm_client.py
+│   └── npc_entity.py
 ├── game/                 # 游戏核心
 │   ├── constants.py      # 常量配置
 │   ├── entities.py       # 玩家、敌人、子弹
@@ -49,6 +79,12 @@ python main.py
 1. **主机**：创建房间 → 进入大厅 → 显示房间码和 IP → 等待玩家 → 按 Enter 开始
 2. **客户端**：加入房间（输入 IP）→ 进入大厅 → 按 R 准备 → 等待主机开始
 3. 支持最多 4 人在大厅，当前游戏最多 2 人联机
+
+## NPC 系统
+
+- 大厅中显示可点击的 NPC（教官、军医等）
+- 点击 NPC 打开对话框，输入后按 Enter，NPC 通过大模型回复
+- 在 `config.json` 中配置 `npc.llm.api_key` 及 `npc.list`
 
 ## 聊天系统
 

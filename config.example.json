@@ -1,0 +1,31 @@
+{
+  "lobby": {
+    "width": 1024,
+    "height": 640,
+    "max_players": 8
+  },
+  "game": {
+    "width": 800,
+    "height": 500
+  },
+  "npc": {
+    "enabled": true,
+    "llm": {
+      "provider": "openai",
+      "api_key": "sk-your-api-key-here",
+      "model": "gpt-4o-mini",
+      "base_url": "https://api.openai.com/v1",
+      "timeout": 30
+    },
+    "list": [
+      {
+        "id": "npc_trainer",
+        "name": "教官",
+        "role": "军事教官",
+        "prompt": "你是一名严厉的军事教官，负责训练新兵。回复简短有力，不超过两句话。",
+        "x": 120,
+        "y": 380
+      }
+    ]
+  }
+}
