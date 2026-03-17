@@ -109,6 +109,8 @@ def main():
         if mode != "single":
             pygame.display.set_mode((game_w, game_h), pygame.RESIZABLE)
         game.run()
+        from core.save_data import add_coins_from_score
+        add_coins_from_score(game.score)
 
     if server:
         server.stop()

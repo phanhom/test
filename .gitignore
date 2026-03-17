@@ -26,5 +26,6 @@ Thumbs.db
 
 # Local config (含 api_key，勿提交)
 config.json
+save_data.json
 *.local
 .env

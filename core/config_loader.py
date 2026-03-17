@@ -27,6 +27,7 @@ def _default_config() -> dict:
     return {
         "lobby": {"width": 1024, "height": 640, "max_players": 8, "world_width": 2048},
         "game": {"width": 800, "height": 500},
+        "shop": {"items": [{"skin_id": i, "price": 50 + i * 30} for i in range(1, 6)]},
         "seasons": {
             "enabled": True,
             "current": "spring",

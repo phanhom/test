@@ -3,6 +3,7 @@
 import pygame
 from game.constants import FPS, WHITE, GRAY, YELLOW
 from game.skins import SKINS
+from core.save_data import get_coins, get_owned_skins
 
 
 class Menu:
@@ -46,15 +47,21 @@ class Menu:
                         elif event.key == pygame.K_DOWN:
                             self.selected = (self.selected + 1) % len(self.options)
                         elif event.key == pygame.K_LEFT:
+                            owned = get_owned_skins() or [0]
                             if self.selected == 0:
-                                self.skin_p1 = (self.skin_p1 - 1) % len(SKINS)
+                                idx = owned.index(self.skin_p1) if self.skin_p1 in owned else 0
+                                self.skin_p1 = owned[(idx - 1) % len(owned)]
                             elif self.selected in (1, 2):
-                                self.skin_p2 = (self.skin_p2 - 1) % len(SKINS)
+                                idx = owned.index(self.skin_p2) if self.skin_p2 in owned else 0
+                                self.skin_p2 = owned[(idx - 1) % len(owned)]
                         elif event.key == pygame.K_RIGHT:
+                            owned = get_owned_skins() or [0]
                             if self.selected == 0:
-                                self.skin_p1 = (self.skin_p1 + 1) % len(SKINS)
+                                idx = owned.index(self.skin_p1) if self.skin_p1 in owned else 0
+                                self.skin_p1 = owned[(idx + 1) % len(owned)]
                             elif self.selected in (1, 2):
-                                self.skin_p2 = (self.skin_p2 + 1) % len(SKINS)
+                                idx = owned.index(self.skin_p2) if self.skin_p2 in owned else 0
+                                self.skin_p2 = owned[(idx + 1) % len(owned)]
                         elif event.key == pygame.K_RETURN:
                             if self.selected == 0:
                                 result = ("single", [self.skin_p1])
@@ -88,6 +95,9 @@ class Menu:
             f"P1: {skin_p1_name}  |  P2: {skin_p2_name}  (←→切换)", True, GRAY
         )
         self.screen.blit(skin_text, (self.width // 2 - 180, 380))
+        coins = get_coins()
+        coin_text = self.small_font.render(f"金币: {coins} (游戏得分兑换)", True, YELLOW)
+        self.screen.blit(coin_text, (self.width // 2 - 120, 420))
 
         if self.input_mode:
             hint = self.small_font.render("输入主机 IP:", True, WHITE)

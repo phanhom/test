@@ -62,6 +62,7 @@ class Lobby:
         self.game_config = None
         self.chat = ChatBox(screen, y=height - 110, width=min(400, width - 40))
         self.dialogue = NPCDialogue(screen, width, height)
+        self.shop_ui = None
 
         from core.config_loader import load_config, get_seasons_config
         cfg = load_config()
@@ -70,9 +71,12 @@ class Lobby:
         self.plaza = Plaza(width, height, world_w)
         self.plaza.add_player(0, "主机", 150)
         self.npcs = _create_npcs(cfg, world_w)
+        self.shop_npc_x = 400
         for npc in self.npcs:
             npc.y = self.plaza.ground_y - 90
         self.selected_npc = None
+        from ui.shop_ui import ShopUI
+        self.shop_ui = ShopUI(screen, width, height)
 
         season_cfg = get_seasons_config()
         self.season_enabled = season_cfg.get("enabled", True)
@@ -121,6 +125,8 @@ class Lobby:
                         self.selected_npc.talk(msg, on_reply)
                     continue
 
+                if self.shop_ui.handle_event(event):
+                    continue
                 if self.dialogue.visible:
                     continue
 
@@ -133,14 +139,18 @@ class Lobby:
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mx, my = event.pos
-                    world_mx = mx + self.plaza.camera_x
-                    for npc in self.npcs:
-                        sx = npc.x - self.plaza.camera_x
-                        if (sx <= mx <= sx + npc.width and
-                                npc.y <= my <= npc.y + npc.height):
-                            self.selected_npc = npc
-                            self.dialogue.show(npc.name, "输入消息后按 Enter。")
-                            break
+                    shop_sx = self.shop_npc_x - self.plaza.camera_x
+                    if (shop_sx <= mx <= shop_sx + 80 and
+                            self.plaza.ground_y - 90 <= my <= self.plaza.ground_y + 10):
+                        self.shop_ui.show()
+                    else:
+                        for npc in self.npcs:
+                            sx = npc.x - self.plaza.camera_x
+                            if (sx <= mx <= sx + npc.width and
+                                    npc.y <= my <= npc.y + npc.height):
+                                self.selected_npc = npc
+                                self.dialogue.show(npc.name, "输入消息后按 Enter。")
+                                break
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE and not self.is_host:
@@ -240,6 +250,13 @@ class Lobby:
             if 0 <= sx <= self.width:
                 pygame.draw.circle(self.screen, p["color"], (int(sx), int(p["y"])), p["size"])
 
+        shop_sx = self.shop_npc_x - cam
+        if -100 < shop_sx < self.width + 100:
+            pygame.draw.rect(self.screen, (80, 60, 40), (shop_sx, self.plaza.ground_y - 90, 80, 90))
+            pygame.draw.rect(self.screen, YELLOW, (shop_sx, self.plaza.ground_y - 90, 80, 90), 2)
+            t = self.font.render("商店", True, YELLOW)
+            self.screen.blit(t, (shop_sx + (80 - t.get_width()) // 2, self.plaza.ground_y - 75))
+
         for npc in self.npcs:
             sx = npc.x - cam
             if -100 < sx < self.width + 100:
@@ -290,3 +307,4 @@ class Lobby:
 
         self.chat.draw()
         self.dialogue.draw()
+        self.shop_ui.draw()

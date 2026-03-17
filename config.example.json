@@ -14,6 +14,15 @@
     "width": 800,
     "height": 500
   },
+  "shop": {
+    "items": [
+      {"skin_id": 1, "price": 50},
+      {"skin_id": 2, "price": 80},
+      {"skin_id": 3, "price": 100},
+      {"skin_id": 4, "price": 120},
+      {"skin_id": 5, "price": 150}
+    ]
+  },
   "npc": {
     "enabled": true,
     "llm": {
