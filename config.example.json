@@ -2,7 +2,13 @@
   "lobby": {
     "width": 1024,
     "height": 640,
-    "max_players": 8
+    "max_players": 8,
+    "world_width": 2048
+  },
+  "seasons": {
+    "enabled": true,
+    "current": "spring",
+    "cycle_seconds": 60
   },
   "game": {
     "width": 800,

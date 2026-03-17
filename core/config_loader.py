@@ -25,8 +25,13 @@ def load_config() -> dict:
 
 def _default_config() -> dict:
     return {
-        "lobby": {"width": 1024, "height": 640, "max_players": 8},
+        "lobby": {"width": 1024, "height": 640, "max_players": 8, "world_width": 2048},
         "game": {"width": 800, "height": 500},
+        "seasons": {
+            "enabled": True,
+            "current": "spring",
+            "cycle_seconds": 60,
+        },
         "npc": {
             "enabled": False,
             "llm": {"api_key": "", "model": "gpt-4o-mini", "base_url": "https://api.openai.com/v1", "timeout": 30},
@@ -45,3 +50,7 @@ def get_game_config() -> dict:
 
 def get_npc_config() -> dict:
     return load_config().get("npc", {})
+
+
+def get_seasons_config() -> dict:
+    return load_config().get("seasons", {"enabled": True, "current": "spring", "cycle_seconds": 60})
