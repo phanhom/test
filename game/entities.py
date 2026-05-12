@@ -6,10 +6,11 @@ from .skins import SKINS
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, player_id: int = 0, skin_id: int = 0):
+    def __init__(self, x, y, player_id: int = 0, skin_id: int = 0, season: str = "spring"):
         super().__init__()
         self.player_id = player_id
         self.skin_id = skin_id % len(SKINS)
+        self.season = season  # 当前季节
         self.width = 40
         self.height = 50
         self.image = pygame.Surface((self.width, self.height))
@@ -43,6 +44,10 @@ class Player(pygame.sprite.Sprite):
                         self.on_ground = True
                         break
 
+    def set_season(self, season: str):
+        """更新当前季节"""
+        self.season = season
+
     def jump(self):
         if self.on_ground:
             self.vel_y = JUMP_FORCE
@@ -64,12 +69,45 @@ class Player(pygame.sprite.Sprite):
         self.skin_id = d.get("skin_id", self.skin_id) % len(SKINS)
 
     def draw(self, surface):
-        skin = SKINS[self.skin_id]
-        pygame.draw.rect(surface, skin["body"], self.rect)
+        # 获取季节装备配置
+        from core.seasons import get_season_equipment
+        season_equipment = get_season_equipment(self.season)
+        
+        # 使用季节装备颜色
+        body_color = season_equipment["body"]
+        gun_color = season_equipment["gun"]
+        accessory_color = season_equipment["accessory"]
+        
+        # 绘制身体（使用季节装备颜色）
+        pygame.draw.rect(surface, body_color, self.rect)
+        
+        # 绘制头部
         head_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 5, 20, 18)
         pygame.draw.rect(surface, (255, 220, 180), head_rect)
+        
+        # 绘制枪械（使用季节装备颜色）
         gun_x = self.rect.right if self.facing_right else self.rect.left - 25
-        pygame.draw.rect(surface, skin["gun"], (gun_x, self.rect.top + 25, 25, 8))
+        pygame.draw.rect(surface, gun_color, (gun_x, self.rect.top + 25, 25, 8))
+        
+        # 绘制季节装饰（如帽子、围巾等）
+        if self.season == "winter":
+            # 冬季：绘制围巾
+            scarf_rect = pygame.Rect(self.rect.x + 5, self.rect.y + 20, 30, 6)
+            pygame.draw.rect(surface, accessory_color, scarf_rect)
+        elif self.season == "summer":
+            # 夏季：绘制太阳镜
+            glasses_rect = pygame.Rect(self.rect.x + 12, self.rect.y + 10, 16, 4)
+            pygame.draw.rect(surface, (0, 0, 0), glasses_rect)
+        elif self.season == "spring":
+            # 春季：绘制花朵装饰
+            flower_center = (self.rect.x + 20, self.rect.y + 5)
+            pygame.draw.circle(surface, accessory_color, flower_center, 4)
+        elif self.season == "autumn":
+            # 秋季：绘制叶子装饰
+            leaf_rect = pygame.Rect(self.rect.x + 15, self.rect.y + 2, 10, 6)
+            pygame.draw.ellipse(surface, accessory_color, leaf_rect)
+        
+        # 绘制玩家标签
         font = pygame.font.Font(None, 24)
         label = font.render(f"P{self.player_id + 1}", True, WHITE)
         surface.blit(label, (self.rect.x, self.rect.y - 18))

@@ -7,6 +7,7 @@ from .entities import Player, Bullet, Enemy
 from .skins import SKINS
 from .maps import get_map
 from .levels import LEVEL_CONFIGS
+from core.seasons import SEASON_ORDER, get_next_season
 
 
 class Game:
@@ -28,6 +29,11 @@ class Game:
         self.game_phase = "playing"
         self.font = pygame.font.Font(None, 36)
         self.big_font = pygame.font.Font(None, 72)
+
+        # 季节系统
+        self.current_season = "spring"
+        self.season_timer = 0
+        self.season_cycle_time = 1800  # 30秒切换一次季节（60fps * 30）
 
         self.player_skins = player_skins or [0, 1]
         self.players: list[Player] = []
@@ -51,11 +57,11 @@ class Game:
         spawns = self.current_map["spawns"]
         if self.player_count == 1:
             x, y = spawns[0]
-            self.players.append(Player(x, y - 50, 0, self.player_skins[0]))
+            self.players.append(Player(x, y - 50, 0, self.player_skins[0], self.current_season))
         else:
             for i in range(2):
                 x, y = spawns[i] if i < len(spawns) else spawns[0]
-                self.players.append(Player(x, y - 50, i, self.player_skins[i]))
+                self.players.append(Player(x, y - 50, i, self.player_skins[i], self.current_season))
 
     def _init_level(self):
         self.bullets.empty()
@@ -255,6 +261,15 @@ class Game:
         self.shoot_cooldown[player_id] = 12
 
     def update(self):
+        # 更新季节系统
+        self.season_timer += 1
+        if self.season_timer >= self.season_cycle_time:
+            self.season_timer = 0
+            self.current_season = get_next_season(self.current_season)
+            # 更新所有玩家的季节
+            for player in self.players:
+                player.set_season(self.current_season)
+
         for i in range(len(self.shoot_cooldown)):
             if self.shoot_cooldown[i] > 0:
                 self.shoot_cooldown[i] -= 1
@@ -316,9 +331,16 @@ class Game:
 
         score_text = self.font.render(f"分数: {self.score}", True, WHITE)
         lives_text = self.font.render(f"生命: {self.lives}", True, RED)
+        
+        # 获取季节名称
+        from core.seasons import get_season_config
+        season_config = get_season_config(self.current_season)
+        season_name = season_config["name"]
+        
         level_text = self.font.render(
             f"关卡 {self.current_level + 1}/{len(LEVEL_CONFIGS)}: {self.level_config['name']} | "
             f"地图: {self.current_map['name']} | "
+            f"季节: {season_name} | "
             f"消灭: {self.enemies_killed_this_level}/{self.level_config['enemies_to_kill']}",
             True, WHITE
         )
