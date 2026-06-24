@@ -72,7 +72,7 @@ class RoomServer:
                     if player_id < self.MAX_PLAYERS and not self.game_started:
                         self.clients.append(client)
                         self.client_data[player_id] = {
-                            "input": {"left": 0, "right": 0, "jump": 0, "shoot": 0},
+                            "input": {"left": 0, "right": 0, "jump": 0, "crouch": 0, "shoot": 0, "melee": 0, "dash": 0},
                             "ready": False,
                             "name": f"玩家{player_id + 2}",  # P1=主机
                         }
@@ -115,7 +115,7 @@ class RoomServer:
 
     def get_input(self, player_id: int) -> dict:
         with self.lock:
-            return self.client_data.get(player_id, {}).get("input", {"left": 0, "right": 0, "jump": 0, "shoot": 0}).copy()
+            return self.client_data.get(player_id, {}).get("input", {"left": 0, "right": 0, "jump": 0, "crouch": 0, "shoot": 0, "melee": 0, "dash": 0}).copy()
 
     def get_lobby_state(self) -> dict:
         """获取大厅状态"""

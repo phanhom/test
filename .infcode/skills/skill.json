@@ -1,0 +1,10 @@
+[
+  {
+    "name": "deepmap",
+    "description": "Use when the user asks about these DeepMap-analyzed repositories: phanhom/openinfo (macOS menu bar app Swift), phanhom/aip (multi language protocol), phanhom/Competitive-Programming (algorithm solutions).\nAlso use for architecture, module responsibility, implementation flow, project purpose,\noptimization ideas, or cross-repository context involving the current repo and related repos.",
+    "folderPath": "/Users/phanhom/Desktop/MASS/TheHive/test/.infcode/skills/deepmap",
+    "enabled": true,
+    "createdAt": 1780976117423,
+    "skillFileMtimeMs": 1780976117406.7878
+  }
+]

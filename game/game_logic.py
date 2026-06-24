@@ -1,4 +1,4 @@
-"""游戏主逻辑 - 整合地图、关卡、实体、聊天"""
+"""游戏主逻辑 - 整合地图、关卡、实体、聊天、武器"""
 
 import pygame
 import random
@@ -7,7 +7,10 @@ from .entities import Player, Bullet, Enemy
 from .skins import SKINS
 from .maps import get_map
 from .levels import LEVEL_CONFIGS
+from .weapons.pickup import WeaponPickup
+from .weapons.armory import Armory
 from core.seasons import SEASON_ORDER, get_next_season
+from .player_state import PlayerState
 
 
 class Game:
@@ -39,6 +42,7 @@ class Game:
         self.players: list[Player] = []
         self.bullets = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
+        self.pickups = pygame.sprite.Group()
 
         self.is_host = is_host
         self.is_client = is_client
@@ -50,7 +54,18 @@ class Game:
             from ui.chat import ChatBox
             self.chat = ChatBox(screen, y=SCREEN_HEIGHT - 130)
 
+        self._spawn_pickups()
         self._init_players()
+
+    def _spawn_pickups(self):
+        armory = Armory()
+        ids = armory.list_unlocked(["shotgun", "sniper"])
+        # 每张地图放 2 个武器箱
+        for _ in range(2):
+            wid = random.choice(ids)
+            x = random.randint(100, SCREEN_WIDTH - 100)
+            y = GROUND_Y - 40
+            self.pickups.add(WeaponPickup(x, y, wid))
 
     def _init_players(self):
         self.players.clear()
@@ -89,8 +104,10 @@ class Game:
         return {
             "players": [p.to_dict() for p in self.players],
             "player_skins": self.player_skins,
-            "bullets": [{"x": b.rect.centerx, "y": b.rect.centery, "d": b.direction} for b in self.bullets],
+            "bullets": [{"x": b.rect.centerx, "y": b.rect.centery, "d": b.direction,
+                         "s": b.speed, "c": b.image.get_at((0, 0))[:3], "dmg": b.damage} for b in self.bullets],
             "enemies": [{"x": e.rect.x, "y": e.rect.y, "d": e.direction} for e in self.enemies],
+            "pickups": [p.to_dict() for p in self.pickups],
             "score": self.score,
             "lives": self.lives,
             "level": self.current_level,
@@ -121,7 +138,8 @@ class Game:
 
         self.bullets.empty()
         for bd in state.get("bullets", []):
-            b = Bullet(bd["x"], bd["y"], bd["d"])
+            color = tuple(bd.get("c", (255, 215, 0)))
+            b = Bullet(bd["x"], bd["y"], bd["d"], speed=bd.get("s", BULLET_SPEED), damage=bd.get("dmg", 10), color=color)
             b.rect.center = (bd["x"], bd["y"])
             self.bullets.add(b)
 
@@ -130,6 +148,10 @@ class Game:
             e = Enemy(ed["x"], ed["y"], self.level_config.get("enemy_speed", 2), 0)
             e.direction = ed["d"]
             self.enemies.add(e)
+
+        self.pickups.empty()
+        for pd in state.get("pickups", []):
+            self.pickups.add(WeaponPickup.from_dict(pd))
 
     def run(self):
         if self.is_client:
@@ -151,31 +173,37 @@ class Game:
             pygame.display.flip()
 
     def _run_client(self):
-        keys_state = {"left": 0, "right": 0, "jump": 0, "shoot": 0}
-        last_shoot = False
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not (self.chat and self.chat.input_active):
-                    self.paused = not self.paused
+            keys_state = {"left": 0, "right": 0, "jump": 0, "crouch": 0, "shoot": 0, "melee": 0, "dash": 0}
+            last_shoot = False
+            last_melee = False
+            while self.running:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not (self.chat and self.chat.input_active):
+                        self.paused = not self.paused
+                    if self.chat:
+                        msg = self.chat.handle_event(event)
+                        if msg:
+                            self.network.send_chat(msg)
+
                 if self.chat:
-                    msg = self.chat.handle_event(event)
-                    if msg:
-                        self.network.send_chat(msg)
+                    self.chat.set_messages(self.network.get_chat_messages())
 
-            if self.chat:
-                self.chat.set_messages(self.network.get_chat_messages())
-
-            if not (self.chat and self.chat.input_active):
-                keys = pygame.key.get_pressed()
-                keys_state["left"] = 1 if keys[pygame.K_LEFT] else 0
-                keys_state["right"] = 1 if keys[pygame.K_RIGHT] else 0
-                keys_state["jump"] = 1 if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE] else 0
-                shoot_now = keys[pygame.K_k] or keys[pygame.K_j]
-                keys_state["shoot"] = 1 if shoot_now and not last_shoot else 0
-                last_shoot = shoot_now
-            self.network.send_input(keys_state)
+                if not (self.chat and self.chat.input_active):
+                    keys = pygame.key.get_pressed()
+                    keys_state["left"] = 1 if keys[pygame.K_LEFT] else 0
+                    keys_state["right"] = 1 if keys[pygame.K_RIGHT] else 0
+                    keys_state["jump"] = 1 if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE] else 0
+                    keys_state["crouch"] = 1 if keys[pygame.K_DOWN] else 0
+                    shoot_now = keys[pygame.K_k]
+                    keys_state["shoot"] = 1 if shoot_now and not last_shoot else 0
+                    last_shoot = shoot_now
+                    melee_now = keys[pygame.K_j]
+                    keys_state["melee"] = 1 if melee_now and not last_melee else 0
+                    last_melee = melee_now
+                    keys_state["dash"] = 1 if keys[pygame.K_l] else 0
+                self.network.send_input(keys_state)
 
             state = self.network.get_state()
             if state:
@@ -206,59 +234,112 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.paused = not self.paused
-                elif event.key == pygame.K_w or event.key == pygame.K_SPACE:
-                    if len(self.players) > 0:
-                        self.players[0].jump()
-                elif event.key == pygame.K_j:
-                    self._shoot(0)
-                elif event.key == pygame.K_k and self.player_count > 1:
-                    self._shoot(1)
-                elif not self.is_client and len(self.players) > 1 and event.key == pygame.K_UP:
-                    self.players[1].jump()
+                elif event.key == pygame.K_e:
+                    self._try_pickup_weapon(0)
+                elif event.key == pygame.K_1:
+                    self._switch_weapon_by_index(0, 0)
+                elif event.key == pygame.K_2:
+                    self._switch_weapon_by_index(0, 1)
+                elif event.key == pygame.K_3:
+                    self._switch_weapon_by_index(0, 2)
+                elif event.key == pygame.K_r:
+                    if self.players:
+                        self.players[0].weapon.reload()
 
         if not self.paused and self.lives > 0:
             keys = pygame.key.get_pressed()
-            if len(self.players) > 0:
-                if keys[pygame.K_a]:
-                    self.players[0].rect.x -= PLAYER_SPEED
-                    self.players[0].facing_right = False
-                if keys[pygame.K_d]:
-                    self.players[0].rect.x += PLAYER_SPEED
-                    self.players[0].facing_right = True
-                self.players[0].rect.x = max(0, min(SCREEN_WIDTH - self.players[0].width, self.players[0].rect.x))
 
+            # P1 输入处理
+            if len(self.players) > 0 and not self.is_client:
+                p1 = self.players[0]
+                p1.handle_input(
+                    left=keys[pygame.K_a],
+                    right=keys[pygame.K_d],
+                    jump=keys[pygame.K_w] or keys[pygame.K_SPACE],
+                    crouch=keys[pygame.K_s],
+                    shoot=keys[pygame.K_j],
+                    melee=keys[pygame.K_k],
+                    dash=keys[pygame.K_l],
+                )
+                # 射击由状态机触发或在 handle_input 中处理；这里保持原来的 shoot 调用
+                if keys[pygame.K_j]:
+                    self._shoot(0)
+
+            # P2 / 联机客户端输入处理
             if len(self.players) > 1:
                 if self.is_host and self.network and len(self.network.clients) > 0:
                     inp = self.network.get_input(1)
-                    if inp.get("left"):
-                        self.players[1].rect.x -= PLAYER_SPEED
-                        self.players[1].facing_right = False
-                    if inp.get("right"):
-                        self.players[1].rect.x += PLAYER_SPEED
-                        self.players[1].facing_right = True
-                    if inp.get("jump"):
-                        self.players[1].jump()
+                    p2 = self.players[1]
+                    p2.handle_input(
+                        left=inp.get("left", 0),
+                        right=inp.get("right", 0),
+                        jump=inp.get("jump", 0),
+                        crouch=inp.get("crouch", 0),
+                        shoot=inp.get("shoot", 0),
+                        melee=inp.get("melee", 0),
+                        dash=inp.get("dash", 0),
+                    )
                     if inp.get("shoot"):
                         self._shoot(1)
-                else:
-                    if keys[pygame.K_LEFT]:
-                        self.players[1].rect.x -= PLAYER_SPEED
-                        self.players[1].facing_right = False
-                    if keys[pygame.K_RIGHT]:
-                        self.players[1].rect.x += PLAYER_SPEED
-                        self.players[1].facing_right = True
-                self.players[1].rect.x = max(0, min(SCREEN_WIDTH - self.players[1].width, self.players[1].rect.x))
+                    if inp.get("melee"):
+                        self._melee(1)
+                elif not self.is_client:
+                    p2 = self.players[1]
+                    p2.handle_input(
+                        left=keys[pygame.K_LEFT],
+                        right=keys[pygame.K_RIGHT],
+                        jump=keys[pygame.K_UP],
+                        crouch=keys[pygame.K_DOWN],
+                        shoot=keys[pygame.K_k],
+                        melee=keys[pygame.K_j],
+                        dash=keys[pygame.K_l],
+                    )
+                    if keys[pygame.K_k]:
+                        self._shoot(1)
+                    if keys[pygame.K_j]:
+                        self._melee(1)
 
-    def _shoot(self, player_id: int):
-        if player_id >= len(self.players) or self.shoot_cooldown[player_id] > 0:
+    def _switch_weapon_by_index(self, player_id: int, index: int):
+        if player_id >= len(self.players):
             return
         p = self.players[player_id]
-        x = p.rect.right if p.facing_right else p.rect.left
-        y = p.rect.centery
-        direction = 1 if p.facing_right else -1
-        bullet = Bullet(x, y, direction, player_id)
-        self.bullets.add(bullet)
-        self.shoot_cooldown[player_id] = 12
+        if index < len(p.weapon_inventory):
+            p.switch_weapon(p.weapon_inventory[index])
+
+    def _try_pickup_weapon(self, player_id: int):
+        if player_id >= len(self.players):
+            return
+        p = self.players[player_id]
+        for pickup in self.pickups:
+            if p.rect.colliderect(pickup.rect):
+                p.pickup_weapon(pickup.weapon)
+                pickup.kill()
+                break
+
+    def _shoot(self, player_id: int):
+        if player_id >= len(self.players):
+            return
+        p = self.players[player_id]
+        if p.action_sm.state in (PlayerState.MELEE, PlayerState.DASH, PlayerState.HURT):
+            return
+        if p.weapon.can_shoot():
+            bullets = p.shoot_with_weapon()
+            self.bullets.add(*bullets)
+            p.action_sm.set_state(PlayerState.SHOOT)
+
+    def _melee(self, player_id: int):
+        if player_id >= len(self.players):
+            return
+        p = self.players[player_id]
+        if p.action_sm.state != PlayerState.MELEE or p.melee_hitbox is None:
+            return
+        # 近战攻击命中敌人
+        for enemy in self.enemies:
+            if p.melee_hitbox.colliderect(enemy.rect):
+                enemy.kill()
+                self.score += 150
+                self.enemies_killed_this_level += 1
+        p.melee_hitbox = None
 
     def update(self):
         # 更新季节系统
@@ -288,13 +369,25 @@ class Game:
                 self.score += 100
                 self.enemies_killed_this_level += 1
 
+        for p in self.players:
+            for pickup in self.pickups:
+                if p.rect.colliderect(pickup.rect):
+                    pickup.kill()
+                    p.pickup_weapon(pickup.weapon)
+                    break
+
         for enemy in self.enemies:
             enemy.update()
 
         for p in self.players:
             if pygame.sprite.spritecollide(p, self.enemies, True):
                 self.lives -= 1
+                p.action_sm.set_state(PlayerState.HURT)
                 pygame.time.delay(500)
+
+        for p in self.players:
+            if p.weapon:
+                p.weapon.update()
 
         self.enemy_spawn_timer += 1
         if self.enemy_spawn_timer >= self.level_config["spawn_interval"]:
@@ -328,15 +421,17 @@ class Game:
             self.screen.blit(bullet.image, bullet.rect)
         for enemy in self.enemies:
             enemy.draw(self.screen)
+        for pickup in self.pickups:
+            pickup.draw(self.screen)
 
         score_text = self.font.render(f"分数: {self.score}", True, WHITE)
         lives_text = self.font.render(f"生命: {self.lives}", True, RED)
-        
+
         # 获取季节名称
         from core.seasons import get_season_config
         season_config = get_season_config(self.current_season)
         season_name = season_config["name"]
-        
+
         level_text = self.font.render(
             f"关卡 {self.current_level + 1}/{len(LEVEL_CONFIGS)}: {self.level_config['name']} | "
             f"地图: {self.current_map['name']} | "
@@ -347,6 +442,21 @@ class Game:
         self.screen.blit(score_text, (10, 10))
         self.screen.blit(lives_text, (SCREEN_WIDTH - 120, 10))
         self.screen.blit(level_text, (10, 45))
+
+        # 武器信息
+        if self.players:
+            p = self.players[0]
+            w = p.weapon
+            weapon_text = self.font.render(
+                f"武器: {w.name} {w.magazine.current}/{w.magazine.capacity}", True, YELLOW
+            )
+            self.screen.blit(weapon_text, (10, 80))
+
+        # 动作提示
+        if self.players:
+            actions = "/".join([p.action_sm.state.value for p in self.players])
+            action_text = self.font.render(f"动作: {actions}", True, CYAN)
+            self.screen.blit(action_text, (SCREEN_WIDTH // 2 - 80, 80))
 
         if self.is_host and self.network:
             conn_text = self.font.render(

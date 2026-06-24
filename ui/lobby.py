@@ -182,14 +182,24 @@ class Lobby:
 
             if self.is_host and self.server:
                 keys = pygame.key.get_pressed()
-                self.plaza.update_player(0, keys[pygame.K_a], keys[pygame.K_d],
-                                         keys[pygame.K_w] or keys[pygame.K_SPACE])
+                self.plaza.update_player(0,
+                                         keys[pygame.K_a], keys[pygame.K_d],
+                                         keys[pygame.K_w] or keys[pygame.K_SPACE],
+                                         keys[pygame.K_s],
+                                         keys[pygame.K_k],
+                                         keys[pygame.K_l])
                 for i in range(self.server.player_count()):
                     inp = self.server.get_input(i)
                     pid = i + 1
                     if pid not in self.plaza.players:
                         self.plaza.add_player(pid, f"P{pid + 1}", 200 + pid * 100)
-                    self.plaza.update_player(pid, inp.get("left"), inp.get("right"), inp.get("jump"))
+                    self.plaza.update_player(pid,
+                                             inp.get("left"),
+                                             inp.get("right"),
+                                             inp.get("jump"),
+                                             inp.get("crouch"),
+                                             inp.get("melee"),
+                                             inp.get("dash"))
 
                 lobby_state = self.server.get_lobby_state()
                 lobby_state["plaza_positions"] = self.plaza.get_positions()
@@ -202,7 +212,10 @@ class Lobby:
                     "left": 1 if keys[pygame.K_LEFT] else 0,
                     "right": 1 if keys[pygame.K_RIGHT] else 0,
                     "jump": 1 if keys[pygame.K_UP] or keys[pygame.K_SPACE] else 0,
+                    "crouch": 1 if keys[pygame.K_DOWN] else 0,
                     "shoot": 0,
+                    "melee": 1 if keys[pygame.K_j] else 0,
+                    "dash": 1 if keys[pygame.K_l] else 0,
                 })
                 lobby = self.client.get_lobby()
                 if lobby:
